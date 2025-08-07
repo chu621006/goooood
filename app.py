@@ -18,7 +18,6 @@ def main():
 
     if uploaded_file is None:
         st.info("請先上傳檔案，以開始學分計算。")
-        # 開發者資訊也顯示在最底
         st.markdown("---")
         st.write("感謝您的使用，若您有相關修改建議或發生其他類型錯誤，請點選[回饋表單](YOUR_FORM_URL)")
         st.write("開發者：[@YourName](https://example.com)")
@@ -70,22 +69,27 @@ def main():
 
         df_ge = pd.DataFrame(passed)
         if {"科目名稱","學分"}.issubset(df_ge.columns):
+            # 前綴映射
             prefixes = {"人文：":"人文","自然：":"自然","社會：":"社會"}
-            ge_pattern = re.compile(r'^(人文：|自然：|社會：)')
+            # 建 regex：只要包含這些前綴就算
+            pattern = re.compile("|".join(re.escape(p) for p in prefixes.keys()))
 
             domain_sums = {}
             details = []
 
-            for pre, name in prefixes.items():
-                # 先篩出所有通識
-                mask_all = df_ge["科目名稱"].apply(lambda x: bool(ge_pattern.match(x)))
-                # 再挑本領域
-                mask_dom = mask_all & df_ge["科目名稱"].str.startswith(pre)
-                df_dom = df_ge[mask_dom]
+            # 先篩出所有包含任一通識前綴的課程
+            mask_all = df_ge["科目名稱"].astype(str).str.contains(pattern)
+            df_all_ge = df_ge[mask_all]
 
-                credit_sum = df_dom["學分"].apply(lambda x: float(x) if x not in [None,""] else 0.0).sum()
+            for pre, name in prefixes.items():
+                # 本領域：科目名稱中含 pre
+                mask_dom = df_all_ge["科目名稱"].str.contains(re.escape(pre))
+                df_dom = df_all_ge[mask_dom]
+                # 累加學分
+                credit_sum = df_dom["學分"].astype(float).sum() if not df_dom.empty else 0.0
                 domain_sums[name] = credit_sum
 
+                # 存檔細節
                 for _, row in df_dom.iterrows():
                     details.append({
                         "領域": name,
