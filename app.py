@@ -62,7 +62,7 @@ def main():
     else:
         st.info("這些科目因成績不及格 ('D','E','F' 等) 未計入總學分。")
 
-    # ====== 通識課程統計 ======
+        # ====== 通識課程統計 ======
     if passed:
         st.markdown("---")
         st.subheader("🎓 通識課程統計")
@@ -71,32 +71,31 @@ def main():
         if {"科目名稱","學分"}.issubset(df_ge.columns):
             # 前綴映射
             prefixes = {"人文：":"人文","自然：":"自然","社會：":"社會"}
-            # 建 regex：只要包含這些前綴就算
-            pattern = re.compile("|".join(re.escape(p) for p in prefixes.keys()))
 
-            domain_sums = {}
-            details = []
-
-            # 先篩出所有包含任一通識前綴的課程
-            mask_all = df_ge["科目名稱"].astype(str).str.contains(pattern)
+            # 1) 不跳脫冒號、忽略大小寫的正則：只要科目名稱內含「人文：」「自然：」「社會：」就算
+            pattern = re.compile("|".join(prefixes.keys()), flags=re.IGNORECASE)
+            mask_all  = df_ge["科目名稱"].astype(str).str.contains(pattern)
             df_all_ge = df_ge[mask_all]
 
+            domain_sums = {}
+            details     = []
             for pre, name in prefixes.items():
-                # 本領域：科目名稱中含 pre
-                mask_dom = df_all_ge["科目名稱"].str.contains(re.escape(pre))
-                df_dom = df_all_ge[mask_dom]
+                # 2) 本領域：只要含該前綴就算（同樣忽略大小寫）
+                mask_dom = df_all_ge["科目名稱"].str.contains(pre, flags=re.IGNORECASE)
+                df_dom   = df_all_ge[mask_dom]
+
                 # 累加學分
                 credit_sum = df_dom["學分"].astype(float).sum() if not df_dom.empty else 0.0
                 domain_sums[name] = credit_sum
 
-                # 存檔細節
+                # 收集細節
                 for _, row in df_dom.iterrows():
                     details.append({
-                        "領域": name,
-                        "學年度": row.get("學年度",""),
-                        "學期": row.get("學期",""),
+                        "領域":     name,
+                        "學年度":   row.get("學年度",""),
+                        "學期":     row.get("學期",""),
                         "科目名稱": row["科目名稱"],
-                        "學分": row["學分"]
+                        "學分":     row["學分"]
                     })
 
             total_ge = sum(domain_sums.values())
@@ -106,8 +105,10 @@ def main():
 
             if details:
                 df_det = pd.DataFrame(details)
-                st.dataframe(df_det[["領域","學年度","學期","科目名稱","學分"]],
-                             use_container_width=True)
+                st.dataframe(
+                  df_det[["領域","學年度","學期","科目名稱","學分"]],
+                  use_container_width=True
+                )
             else:
                 st.info("沒有符合條件的通識課程。")
 
@@ -118,3 +119,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
