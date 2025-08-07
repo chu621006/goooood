@@ -1,3 +1,4 @@
+# app.py
 import streamlit as st
 import pandas as pd
 from utils.pdf_processing import process_pdf_file
@@ -6,99 +7,154 @@ from utils.grade_analysis import calculate_total_credits
 
 def main():
     st.set_page_config(page_title="成績單學分計算工具", layout="wide")
-    st.title("📄 成績單學分計算工具")
 
-    # --- 上傳檔案 ---
+    # 標題與使用說明
+    st.title("📄 成績單學分計算工具")
+    with open("usage_guide.pdf", "rb") as f:
+        pdf_bytes = f.read()
+    st.download_button(
+        label="📖 使用說明 (PDF)",
+        data=pdf_bytes,
+        file_name="使用說明.pdf",
+        mime="application/pdf"
+    )
+    st.markdown("---")
+
+    # 上傳成績單
     st.write("請上傳 PDF（純表格）或 Word (.docx) 格式的成績單檔案。")
-    uploaded_file = st.file_uploader("選擇一個成績單檔案（支援 PDF, DOCX）", type=["pdf", "docx"])
-    if not uploaded_file:
-        st.info("請先上傳檔案，以開始學分計算。")
+    uploaded_file = st.file_uploader(
+        "選擇成績單檔案（PDF / DOCX）",
+        type=["pdf", "docx"]
+    )
+
+    # 上傳通識課程 CSV（可選）
+    st.write("（選用）若已下載「通過課程 CSV」，可在此上傳以進行通識課程統計。")
+    csv_file = st.file_uploader(
+        "上傳通過課程 CSV",
+        type=["csv"],
+        key="gened_csv"
+    )
+
+    # 畫面互動邏輯
+    if not uploaded_file and not csv_file:
+        st.info("請先上傳成績單或「通過課程 CSV」。")
         return
 
-    # --- 解析檔案 ---
-    if uploaded_file.type == "application/pdf":
-        extracted = process_pdf_file(uploaded_file)
-    else:
-        extracted = process_docx_file(uploaded_file)
+    # 若使用者有上傳 CSV，直接讀取 CSV
+    df_gened: pd.DataFrame = None
+    if csv_file:
+        try:
+            df_gened = pd.read_csv(csv_file)
+        except Exception as e:
+            st.error(f"CSV 讀取失敗：{e}")
+            df_gened = None
 
-    # --- 計算學分 ---
-    total_credits, passed_list, failed_list = calculate_total_credits(extracted)
-
-    # **關鍵修正**：把 list 轉成 DataFrame
-    df_passed = pd.DataFrame(passed_list)
-    df_failed = pd.DataFrame(failed_list)
-
-    # --- 顯示查詢結果 ---
-    st.markdown("---")
-    st.subheader("✅ 查詢結果")
-    st.markdown(f"目前總學分：**{total_credits:.2f}**")
-
-    target_credits = st.number_input("目標學分 (例如 128)", min_value=0.0, value=128.0, step=1.0)
-    diff = target_credits - total_credits
-    if diff > 0:
-        st.write(f"還需 **:red[{diff:.2f}]** 學分", unsafe_allow_html=True)
-    else:
-        st.write(f"已超出目標 **{abs(diff):.2f}** 學分")
-
-    # --- 顯示通過的課程 & 下載 CSV ---
-    st.markdown("---")
-    st.subheader("📚 通過的課程列表")
-    if df_passed.empty:
-        st.info("沒有找到可計算學分的通過科目。")
-    else:
-        st.dataframe(df_passed, use_container_width=True)
-        csv_pass = df_passed.to_csv(index=False, encoding="utf-8-sig")
-        st.download_button("下載通過課程 CSV", csv_pass, file_name="passed_courses.csv", mime="text/csv")
-
-    # --- 顯示不及格的課程 & 下載 CSV ---
-    if not df_failed.empty:
-        st.markdown("---")
-        st.subheader("⚠️ 不及格的課程列表")
-        st.dataframe(df_failed, use_container_width=True)
-        csv_fail = df_failed.to_csv(index=False, encoding="utf-8-sig")
-        st.download_button("下載不及格課程 CSV", csv_fail, file_name="failed_courses.csv", mime="text/csv")
-
-    # --- 通識課程篩選 ---
-    st.markdown("---")
-    st.markdown("### 🎓 通識課程篩選")
-
-    if df_passed.empty:
-        st.info("尚未偵測到任何通過課程，無法進行通識課程篩選。")
-    else:
-        # 動態尋找「科目名稱」欄位
-        subj_cols = [c for c in df_passed.columns if "科目" in c]
-        if not subj_cols:
-            st.error("找不到任何「科目名稱」欄位，無法篩選通識課程。")
+    # 若尚未提供 CSV，且有成績單，則解析成績單
+    if df_gened is None and uploaded_file:
+        filename = uploaded_file.name.lower()
+        if filename.endswith(".pdf"):
+            dfs = process_pdf_file(uploaded_file)
         else:
-            subj_col = subj_cols[0]
-            # 去除所有空白
-            df_passed["__subj_clean"] = (
-                df_passed[subj_col].astype(str).str.replace(r"\s+", "", regex=True)
+            dfs = process_docx_file(uploaded_file)
+
+        total_credits, passed, failed = calculate_total_credits(dfs)
+
+        st.markdown("---")
+        st.markdown("## ✅ 查詢結果")
+        st.markdown(
+            f"<p style='font-size:32px; margin:4px 0;'>目前總學分："
+            f"<strong>{total_credits:.2f}</strong></p>",
+            unsafe_allow_html=True
+        )
+        target = st.number_input("目標學分（例如：128）", min_value=0.0, value=128.0, step=1.0)
+        diff = target - total_credits
+        if diff > 0:
+            st.markdown(
+                f"<p style='font-size:24px;'>還需 "
+                f"<span style='color:red;'>{diff:.2f}</span> 學分</p>",
+                unsafe_allow_html=True
             )
-            # 用正則匹配前綴
-            mask = df_passed["__subj_clean"].str.contains(r"^(人文|自然|社會)[:：]")
-            df_gened = df_passed[mask].copy()
+        else:
+            st.markdown(
+                f"<p style='font-size:24px;'>已超出畢業學分 "
+                f"<span style='color:red;'>{abs(diff):.2f}</span> 學分</p>",
+                unsafe_allow_html=True
+            )
 
-            if df_gened.empty:
-                st.info("未偵測到任何通識課程。")
+        # 把通過的課程列表輸出為 CSV 供使用者下載或後續再上傳
+        if passed:
+            df_passed = pd.DataFrame(passed)
+            csv_pass = df_passed.to_csv(index=False, encoding="utf-8-sig")
+            st.download_button(
+                label="下載通過課程 CSV",
+                data=csv_pass,
+                file_name="通過課程列表.csv",
+                mime="text/csv"
+            )
+        else:
+            st.info("未偵測到任何通過的課程。")
+
+        # 顯示不及格課程
+        if failed:
+            df_failed = pd.DataFrame(failed)
+            st.dataframe(df_failed, use_container_width=True)
+            csv_fail = df_failed.to_csv(index=False, encoding="utf-8-sig")
+            st.download_button(
+                label="下載不及格課程 CSV",
+                data=csv_fail,
+                file_name="不及格課程列表.csv",
+                mime="text/csv"
+            )
+
+    # 若已有 CSV（df_gened），則進行通識課程篩選
+    if df_gened is not None:
+        st.markdown("---")
+        st.markdown("### 🎓 通識課程統計（CSV 來源）")
+        # 檢查必要欄位
+        required = ["學年度", "學期", "科目名稱", "學分"]
+        if not all(col in df_gened.columns for col in required):
+            st.error(f"CSV 欄位不足，需包含：{required}")
+        else:
+            # 篩出「人文：」「自然：」「社會：」開頭的科目
+            prefixes = ("人文：", "自然：", "社會：")
+            mask = df_gened["科目名稱"].astype(str).str.startswith(prefixes)
+            df_gened_sel = df_gened.loc[mask, required + ["科目名稱"]].copy()
+            if df_gened_sel.empty:
+                st.info("CSV 中未偵測到任何通識課程。")
             else:
-                df_gened["領域"] = (
-                    df_gened["__subj_clean"].str.extract(r"^(人文|自然|社會)[:：]")[0]
+                # 擷取領域
+                df_gened_sel["領域"] = (
+                    df_gened_sel["科目名稱"]
+                    .str.extract(r'^(人文：|自然：|社會：)')[0]
+                    .str[:-1]
                 )
-                show_cols = ["領域"] + [
-                    c for c in ["學年度","學期", subj_col, "學分"] if c in df_gened.columns
-                ]
-                st.dataframe(df_gened[show_cols].reset_index(drop=True), use_container_width=True)
+                # 顯示
+                st.dataframe(
+                    df_gened_sel[["領域"] + required],
+                    use_container_width=True
+                )
+                # 可選下載
+                csv_out = df_gened_sel.to_csv(index=False, encoding="utf-8-sig")
+                st.download_button(
+                    label="下載篩選後通識課程 CSV",
+                    data=csv_out,
+                    file_name="通識課程篩選.csv",
+                    mime="text/csv"
+                )
 
-    # --- 回饋＆開發者資訊（固定顯示） ---
+    # 最下方：回饋 & 開發者資訊
     st.markdown("---")
     st.markdown(
-        '[💬 感謝您的使用，若您有修改建議或遇到其他錯誤，請點我填寫回饋表單](https://你的回饋表單網址)'
+        '<p style="text-align:center;">感謝您的使用，若您有相關修改建議或發生其他類型錯誤，'
+        '<a href="https://forms.gle/Bu95Pt74d1oGVCev5" target="_blank">請點此提出</a></p>',
+        unsafe_allow_html=True
     )
     st.markdown(
-        '開發者：'
-        '[Chu](https://你的個人連結)', unsafe_allow_html=True
+        '<p style="text-align:center;">開發者：'
+        '<a href="https://www.instagram.com/chiuuuuu11.7?igsh=MWRlc21zYW55dWZ5Yw==" target="_blank">Chu</a></p>',
+        unsafe_allow_html=True
     )
+
 
 if __name__ == "__main__":
     main()
