@@ -145,9 +145,16 @@ def main():
                     df_selected[["領域", "科目名稱", "學分"]],
                     use_container_width=True
                 )
-
+# 開發者資訊
+    st.markdown(
+        '<p style="text-align:center;">'
+        '開發者：<a href="https://www.instagram.com/chiuuuuu11.7?igsh=MWRlc21zYW55dWZ5Yw==" target="_blank">Chu</a>'
+        '</p>',
+        unsafe_allow_html=True
+    )
 
 if __name__ == "__main__":
     main()
+
 
 
