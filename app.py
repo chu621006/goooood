@@ -106,38 +106,56 @@ def main():
     else:
         st.info("未偵測到任何不及格的課程。")
 
-    # --- 新增：通識課程 CSV 上傳 (選用) ---
-    st.markdown("---")
-    st.markdown("### 🎓 通識課程篩選 (選用 CSV)")
-    gen_ed_csv = st.file_uploader(
-        "(選用) 若已下載「通過課程 CSV、WORD檔」，可直接上傳以做通識課統計。",
-        type=["csv", "docx"],
-        key="gened"
-    )
-    if gen_ed_csv:
-        try:
-            df_gen = pd.read_csv(gen_ed_csv)
-            # 必要欄位檢查
-            required = ["科目名稱", "學分"]
-            missing = [c for c in required if c not in df_gen.columns]
-            if missing:
-                st.error(f"CSV 欄位不齊全，必須包含：{required}")
+    # --- 新增：通識課程 CSV / DOCX 上傳 (選用) ---
+st.markdown("---")
+st.markdown("### 🎓 通識課程篩選 (選用 CSV / DOCX)")
+gened_file = st.file_uploader(
+    "(選用) 上傳「通過課程 CSV」或原始 Word (DOCX) 來進行通識課統計。",
+    type=["csv", "docx"],
+    key="gened"
+)
+if gened_file:
+    try:
+        # 1) CSV 直接讀
+        if gened_file.name.lower().endswith(".csv"):
+            df_gen = pd.read_csv(gened_file, encoding="utf-8-sig")
+        # 2) DOCX 重新解析 passed list
+        else:
+            # 利用你原本的 docx 處理流程拿到 passed 資料
+            dfs2 = process_docx_file(gened_file)
+            _, passed2, _ = calculate_total_credits(dfs2)
+            df_gen = pd.DataFrame(passed2)
+
+        # 欄位檢查
+        required = ["科目名稱", "學分"]
+        missing = [c for c in required if c not in df_gen.columns]
+        if missing:
+            st.error(f"上傳檔案不包含必要欄位：{required}")
+        else:
+            # 統一把全形「：」換成半形「:」，並去掉左右空白
+            df_gen["科目名稱"] = (
+                df_gen["科目名稱"]
+                .astype(str)
+                .str.replace("：", ":", regex=False)
+                .str.strip()
+            )
+            # 前綴篩選
+            prefixes = ("人文:", "自然:", "社會:")
+            mask = df_gen["科目名稱"].str.startswith(prefixes)
+            df_sel = df_gen[mask].reset_index(drop=True)
+
+            if df_sel.empty:
+                st.info("未偵測到任何符合通識前綴的課程。")
             else:
-                # 篩出前綴
-                prefixes = ("人文：", "自然：", "社會：")
-                mask = df_gen["科目名稱"].astype(str).str.startswith(prefixes)
-                df_selected = df_gen[mask].reset_index(drop=True)
-                if df_selected.empty:
-                    st.info("未偵測到任何符合通識前綴的課程。")
-                else:
-                    df_selected["領域"] = (
-                        df_selected["科目名稱"]
-                        .str.extract(r"^(人文：|自然：|社會：)")[0]
-                        .str[:-1]
-                    )
-                    st.dataframe(df_selected[["領域", "科目名稱", "學分"]], use_container_width=True)
-        except Exception as e:
-            st.error(f"讀取 CSV 發生錯誤：{e}")
+                # 抽出「領域」
+                df_sel["領域"] = (
+                    df_sel["科目名稱"]
+                    .str.extract(r"^(人文:|自然:|社會:)")[0]
+                    .str[:-1]
+                )
+                st.dataframe(df_sel[["領域", "科目名稱", "學分"]], use_container_width=True)
+    except Exception as e:
+        st.error(f"通識課程篩選時發生錯誤：{e}")
 
     # --- 回饋 & 開發者資訊（固定顯示） ---
     st.markdown("---")
@@ -157,4 +175,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
