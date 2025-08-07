@@ -145,7 +145,16 @@ def main():
                     df_selected[["領域", "科目名稱", "學分"]],
                     use_container_width=True
                 )
-# 開發者資訊
+
+    # 回饋連結
+    st.markdown(
+        '<p style="text-align:center;">'
+        '感謝您的使用，若您有相關修改建議或發生其他類型錯誤，'
+        '<a href="https://forms.gle/Bu95Pt74d1oGVCev5" target="_blank">請點此提出</a>'
+        '</p>',
+        unsafe_allow_html=True
+    )
+    # 開發者資訊
     st.markdown(
         '<p style="text-align:center;">'
         '開發者：<a href="https://www.instagram.com/chiuuuuu11.7?igsh=MWRlc21zYW55dWZ5Yw==" target="_blank">Chu</a>'
@@ -155,6 +164,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
