@@ -9,7 +9,7 @@ def main():
     st.set_page_config(page_title="成績單學分計算工具", layout="wide")
     st.title("📄 成績單學分計算工具")
 
-    # 使用說明連結（PDF）
+    # 使用說明連結
     st.markdown("[📘 使用說明 (PDF)](usage_guide.pdf)", unsafe_allow_html=True)
 
     st.markdown("請上傳 PDF（純表格）或 Word（.docx）格式的成績單檔案。")
@@ -46,9 +46,8 @@ def main():
     st.markdown("### 📚 通過的課程列表")
     if passed:
         df_pass = pd.DataFrame(passed)
-        # 只顯示真正有的欄位，避免 KeyError
-        want = ["學年度","學期","科目名稱","學分","GPA"]
-        cols = [c for c in want if c in df_pass.columns]
+        cols_want = ["學年度","學期","科目名稱","學分","GPA"]
+        cols = [c for c in cols_want if c in df_pass.columns]
         st.dataframe(df_pass[cols], use_container_width=True)
         csv_p = df_pass.to_csv(index=False, encoding="utf-8-sig")
         st.download_button("下載通過課程 CSV", csv_p, "passed.csv", "text/csv")
@@ -60,32 +59,35 @@ def main():
         st.markdown("---")
         st.markdown("### ⚠️ 不及格的課程列表")
         df_fail = pd.DataFrame(failed)
-        want = ["學年度","學期","科目名稱","學分","GPA"]
-        cols = [c for c in want if c in df_fail.columns]
+        cols_want = ["學年度","學期","科目名稱","學分","GPA"]
+        cols = [c for c in cols_want if c in df_fail.columns]
         st.dataframe(df_fail[cols], use_container_width=True)
         csv_f = df_fail.to_csv(index=False, encoding="utf-8-sig")
         st.download_button("下載不及格課程 CSV", csv_f, "failed.csv", "text/csv")
 
-    # 通識課程統計
+    # 通識課程統計（改成只要「包含」就算）
+    st.markdown("---")
+    st.markdown("## 🎓 通識課程統計")
+
     GE_PREFIXES = ["人文：","自然：","社會："]
     ge = []
     for c in passed:
         name = c.get("科目名稱","")
         for pre in GE_PREFIXES:
-            if name.startswith(pre):
-                ge.append({**c, "領域":pre[:-1]})
+            if pre in name:  # 改成「包含」
+                ge.append({**c, "領域": pre[:-1]})
                 break
+
     total_ge = sum(x["學分"] for x in ge)
     ge_dom = {d:0.0 for d in ["人文","自然","社會"]}
     for x in ge:
         ge_dom[x["領域"]] += x["學分"]
 
-    st.markdown("---")
-    st.markdown("## 🎓 通識課程統計")
     st.write(f"- **總計通識學分：** {total_ge:.2f} 學分")
     st.write(f"- 人文：{ge_dom['人文']:.2f} 學分")
     st.write(f"- 自然：{ge_dom['自然']:.2f} 學分")
     st.write(f"- 社會：{ge_dom['社會']:.2f} 學分")
+
     if ge:
         df_ge = pd.DataFrame(ge)[["領域","學年度","學期","科目名稱","學分"]]
         st.dataframe(df_ge, use_container_width=True)
