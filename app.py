@@ -92,30 +92,33 @@ def main():
             csv_fail = df_failed.to_csv(index=False, encoding="utf-8-sig")
             st.download_button("下載不及格課程 CSV", csv_fail, file_name="failed_courses.csv")
 
-        # 通識課程篩選
-        st.markdown("---")
-        st.markdown("### 🎓 通識課程篩選")
-        if df_passed.empty:
-            st.info("尚未偵測到任何通過課程，無法進行通識課程篩選。")
-        else:
-            prefixes = ("人文：", "自然：", "社會：")
-            # 先確定 '科目名稱' 欄存在
-            if "科目名稱" not in df_passed.columns:
-                st.error("無法找到「科目名稱」欄，無法進行通識課程篩選。")
-            else:
-                mask = df_passed["科目名稱"].astype(str).str.startswith(prefixes)
-                df_gened = df_passed[mask].reset_index(drop=True)
-                if df_gened.empty:
-                    st.info("未偵測到任何通識課程。")
-                else:
-                    df_gened["領域"] = (
-                        df_gened["科目名稱"]
-                        .str.extract(r"^(人文：|自然：|社會：)")[0]
-                        .str[:-1]
-                    )
-                    desired = ["領域","學年度","學期","科目名稱","學分"]
-                    cols = [c for c in desired if c in df_gened.columns]
-                    st.dataframe(df_gened[cols], use_container_width=True)
+       # 通識課程篩選（更寬鬆的冒號偵測）
+st.markdown("---")
+st.markdown("### 🎓 通識課程篩選")
+if df_passed.empty:
+    st.info("尚未偵測到任何通過課程，無法進行通識課程篩選。")
+elif "科目名稱" not in df_passed.columns:
+    st.error("無法找到「科目名稱」欄，無法進行通識課程篩選。")
+else:
+    # 1) 去掉空白、換行，再做匹配
+    names = (
+        df_passed["科目名稱"]
+        .astype(str)
+        .str.replace(r"\s+", "", regex=True)
+    )
+    # 2) 支援全形 / 半形 冒號
+    pattern = r"^(人文|自然|社會)[:：]"
+    mask = names.str.match(pattern)
+    df_gened = df_passed[mask].copy()
+
+    if df_gened.empty:
+        st.info("未偵測到任何通識課程。")
+    else:
+        # 萃取領域「人文/自然/社會」
+        df_gened["領域"] = names[mask].str.extract(pattern)[0]
+        desired = ["領域", "學年度", "學期", "科目名稱", "學分"]
+        cols = [c for c in desired if c in df_gened.columns]
+        st.dataframe(df_gened[cols], use_container_width=True)
 
     # 回饋＆開發者資訊（固定顯示）
     st.markdown("---")
@@ -130,3 +133,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
