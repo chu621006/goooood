@@ -1,0 +1,4 @@
+streamlit
+pandas
+pdfplumber>=0.10.0
+python-docx
