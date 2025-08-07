@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
-# … 你原本的 import 保持不動 …
+from utils.pdf_processing import process_pdf_file
+from utils.docx_processing import process_docx_file
+from utils.grade_analysis import calculate_total_credits
 
 def main():
     st.set_page_config(page_title="成績單學分計算工具", layout="wide")
@@ -80,3 +82,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
