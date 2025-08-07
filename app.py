@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 import pandas as pd
 from utils.pdf_processing import process_pdf_file
@@ -137,3 +136,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
