@@ -93,33 +93,24 @@ def main():
         # —— 新增：通識課程統計 —— #
         st.markdown("### 🎓 通識課程統計")
         if passed:
-            # 篩選「科目名稱」以「人文：」「自然：」「社會：」開頭的課程
-            prefixes = ("人文：", "自然：", "社會：")
-            gen_ed_mask = df_passed["科目名稱"].str.startswith(prefixes)
-            df_gen_ed = df_passed[gen_ed_mask]
+            # 只要「科目名稱」存在，就篩選前綴
+            if "科目名稱" in df_passed.columns:
+                prefixes = ("人文：", "自然：", "社會：")
+                gen_ed_mask = df_passed["科目名稱"].str.startswith(prefixes, na=False)
+                df_gen_ed = df_passed[gen_ed_mask]
+            else:
+                df_gen_ed = pd.DataFrame()  # 沒有「科目名稱」欄位，直接空
+
             if not df_gen_ed.empty:
-                st.dataframe(df_gen_ed[["學年度","學期","科目名稱","學分"]], use_container_width=True)
+                # 只取實際存在的欄位
+                wanted = ["學年度", "學期", "科目名稱", "學分"]
+                cols = [c for c in wanted if c in df_gen_ed.columns]
+                st.dataframe(df_gen_ed[cols], use_container_width=True)
             else:
                 st.info("未偵測到任何通識課程。")
         else:
             st.info("未偵測到任何通識課程。")
-        # —— 新增結束 —— #
-
-        # 不及格的課程列表
-        st.markdown("### ⚠️ 不及格的課程列表")
-        if failed:
-            df_failed = pd.DataFrame(failed)
-            st.dataframe(df_failed, use_container_width=True)
-            csv_failed = df_failed.to_csv(index=False, encoding='utf-8-sig')
-            st.download_button(
-                label="下載不及格課程 CSV",
-                data=csv_failed,
-                file_name="不及格課程列表.csv",
-                mime="text/csv"
-            )
-        else:
-            st.info("未偵測到任何不及格的課程。")
-
+            
     # 底部分隔線
     st.markdown("---")
     # 回饋連結
@@ -140,3 +131,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
