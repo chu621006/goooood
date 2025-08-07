@@ -124,11 +124,9 @@ def main():
                 st.info("未偵測到任何符合通識前綴的課程。")
             else:
                 # 計算總學分
-total_gen = df_selected["學分"].sum()
-st.markdown(
-    f"<p style='font-size:28px; font-weight:bold;'>通識總學分：{total_gen:.0f}</p>",
-    unsafe_allow_html=True
-)
+                total_gen = df_selected["學分"].sum()
+                st.markdown(f"**通識總學分：{total_gen:.0f}**")
+
                 # 提取領域
                 df_selected["領域"] = (
                     df_selected["科目名稱"]
@@ -166,6 +164,7 @@ st.markdown(
 
 if __name__ == "__main__":
     main()
+
 
 
 
