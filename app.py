@@ -106,6 +106,17 @@ def main():
         # --- 新增：通識學分計算(僅供電腦用戶使用) ---
     st.markdown("---")
     st.markdown("## 🎓 通識學分計算(僅供電腦用戶使用)")
+
+    # 通識計算說明下載按鈕
+    with open("caculate.pdf", "rb") as f:
+        pdf_bytes = f.read()
+    st.download_button(
+        label="‼️通識學分計算使用說明(PDF)‼️",
+        data=pdf_bytes,
+        file_name="通識學分計算使用說明處理.pdf",
+        mime="application/pdf"
+    )
+    
     gen_docx = st.file_uploader(
         "請上傳 Word 檔(.docx) 以計算通識學分（單獨功能）", type=["docx"], key="gened_word"
     )
@@ -166,6 +177,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
