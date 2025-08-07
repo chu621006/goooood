@@ -30,10 +30,10 @@ def main():
     total_credits, passed, failed = calculate_total_credits(dfs)
 
     st.markdown("---")
+    # 查詢結果
     st.markdown("## ✅ 查詢結果")
-    # 總學分
     st.markdown(f"<span style='font-size:32px;'>目前總學分：**{total_credits:.2f}**</span>", unsafe_allow_html=True)
-    # 距離目標
+
     target = st.number_input("目標學分 (例如 128)", min_value=0.0, value=128.0, step=1.0)
     diff = target - total_credits
     diff_str = f"{abs(diff):.2f}"
@@ -75,10 +75,56 @@ def main():
     else:
         st.info("沒有找到任何不及格的課程。")
 
-    # 開發者資訊與回饋連結（永遠顯示於底部）
+    # ————————————————
+    # 通識課程統計
+    if passed:
+        st.markdown("---")
+        st.subheader("🎓 通識課程統計")
+
+        df_ge = pd.DataFrame(passed)
+        if "科目名稱" in df_ge.columns and "學分" in df_ge.columns:
+            # 定義領域前綴與顯示名稱
+            prefixes = {
+                "人文：": "人文",
+                "自然：": "自然",
+                "社會：": "社會"
+            }
+            domain_sums = {}
+            details = []
+
+            # 計算各領域學分，並收集課程
+            for pre, name in prefixes.items():
+                mask = df_ge["科目名稱"].str.startswith(pre)
+                df_dom = df_ge[mask]
+                credit_sum = df_dom["學分"].astype(float).sum()
+                domain_sums[name] = credit_sum
+                for _, row in df_dom.iterrows():
+                    details.append({
+                        "領域": name,
+                        "學年度": row.get("學年度",""),
+                        "學期": row.get("學期",""),
+                        "科目名稱": row["科目名稱"],
+                        "學分": row["學分"]
+                    })
+
+            total_ge = sum(domain_sums.values())
+            # 顯示統計
+            st.markdown(f"- 總計通識學分：**{total_ge:.2f}**")
+            for name, s in domain_sums.items():
+                st.markdown(f"  - {name}：{s:.2f} 學分")
+            # 顯示細節表
+            if details:
+                df_det = pd.DataFrame(details)
+                st.dataframe(df_det[["領域","學年度","學期","科目名稱","學分"]], use_container_width=True)
+            else:
+                st.info("沒有符合條件的通識課程。")
+
+    # ————————————————
+    # 回饋 & 開發者資訊（置底）
     st.markdown("---")
     st.markdown(
-        "[💬 感謝您的使用，若您有修改建議或其他錯誤回報，請點此填寫回饋表單](https://your-feedback-form-url.example.com)"
+        "[💬 感謝您的使用，若您有修改建議或其他錯誤回報，請點此填寫回饋表單]"
+        "(https://your-feedback-form-url.example.com)"
     )
     st.markdown(
         "開發者："
