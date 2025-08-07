@@ -103,7 +103,7 @@ def main():
         else:
             st.info("未偵測到任何不及格的課程。")
 
-    # --- 新增：通識學分計算(僅供電腦用戶使用) ---
+        # --- 新增：通識學分計算(僅供電腦用戶使用) ---
     st.markdown("---")
     st.markdown("## 🎓 通識學分計算(僅供電腦用戶使用)")
     gen_docx = st.file_uploader(
@@ -126,14 +126,28 @@ def main():
                 # 計算總學分
                 total_gen = df_selected["學分"].sum()
                 st.markdown(f"**通識總學分：{total_gen:.0f}**")
+
                 # 提取領域
                 df_selected["領域"] = (
-                    df_selected["科目名稱"].str.extract(r"^(人文：|自然：|社會：)")[0].str[:-1]
+                    df_selected["科目名稱"]
+                    .str.extract(r"^(人文：|自然：|社會：)")[0]
+                    .str[:-1]
                 )
+
+                # 各領域學分統計
+                gen_by_area = df_selected.groupby("領域")["學分"].sum().reindex(["人文","自然","社會"], fill_value=0)
+                st.markdown("**各領域學分**：")
+                for area, credits in gen_by_area.items():
+                    st.markdown(f"- {area}：{credits:.0f} 學分")
+
+                # 列出明細
                 st.dataframe(
-                    df_selected[["領域", "科目名稱", "學分"]], use_container_width=True
+                    df_selected[["領域", "科目名稱", "學分"]],
+                    use_container_width=True
                 )
+
 
 if __name__ == "__main__":
     main()
+
 
