@@ -104,7 +104,43 @@ def main():
         else:
             st.info("未偵測到任何不及格的課程。")
 
-    # --- 新增：通識學分計算(僅供電腦用戶使用) ---
+        # --- 新增：通識學分計算(僅供電腦用戶使用) ---
+    st.markdown("---")
+    st.markdown("## 🎓 通識學分計算(僅供電腦用戶使用)")
+    gen_docx = st.file_uploader(
+        "請上傳 Word 檔(.docx) 以計算通識學分（單獨功能）", type=["docx"], key="gened_word"
+    )
+    if gen_docx:
+        dfs_gen = process_docx_file(gen_docx)
+        _, passed_gen, _ = calculate_total_credits(dfs_gen)
+        df_gen = pd.DataFrame(passed_gen)
+        if df_gen.empty:
+            st.info("未偵測到任何課程資料。請確認上傳的 Word 檔案格式正確。")
+        else:
+            # 篩選通識前綴
+            prefixes = ("人文：", "自然：", "社會：")
+            mask = df_gen["科目名稱"].astype(str).str.startswith(prefixes)
+            df_selected = df_gen[mask].reset_index(drop=True)
+            if df_selected.empty:
+                st.info("未偵測到任何符合通識前綴的課程。")
+            else:
+                # 計算總學分
+                total_gen = df_selected["學分"].sum()
+                st.markdown(f"**通識總學分：{total_gen:.0f}**")
+                # 計算各領域學分
+                domain_sums = df_selected.groupby(df_selected["科目名稱"].str.extract(r"^(人文：|自然：|社會：)")[0].str[:-1])["學分"].sum()
+                st.markdown("**各領域學分：**")
+                for domain, credits in domain_sums.items():
+                    st.write(f"- {domain}：{credits:.0f} 學分")
+                # 提取領域欄
+                df_selected["領域"] = (
+                    df_selected["科目名稱"]
+                    .str.extract(r"^(人文：|自然：|社會：)")[0]
+                    .str[:-1]
+                )
+                st.dataframe(
+                    df_selected[["領域", "科目名稱", "學分"]], use_container_width=True
+                )(僅供電腦用戶使用) ---
     st.markdown("---")
     st.markdown("## 🎓 通識學分計算(僅供電腦用戶使用)")
     gen_docx = st.file_uploader(
