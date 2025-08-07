@@ -1,94 +1,158 @@
-# utils/pdf_processing.py
 import streamlit as st
 import pandas as pd
 import pdfplumber
+import collections
 import re
-from .grade_analysis import normalize_text
 
-def make_unique_columns(cols):
+from .grade_analysis import parse_credit_and_gpa, is_passing_gpa  # if needed
+
+
+def normalize_text(cell_content):
     """
-    将表头去重，生成唯一列名
+    標準化從 pdfplumber 提取的單元格內容。
+    處理 None 值、pdfplumber 的 Text 物件和普通字串。
+    將多個空白字元（包括換行）替換為單個空格，並去除兩端空白。
     """
-    names = []
-    seen = {}
-    for c in cols:
-        base = normalize_text(c) or "Column"
-        cnt = seen.get(base, 0)
-        name = base if cnt == 0 else f"{base}_{cnt}"
-        seen[base] = cnt + 1
-        names.append(name)
-    return names
+    if cell_content is None:
+        return ""
+
+    text = ""
+    if hasattr(cell_content, 'text'):
+        text = str(cell_content.text)
+    elif isinstance(cell_content, str):
+        text = cell_content
+    else:
+        text = str(cell_content)
+
+    return re.sub(r'\s+', ' ', text).strip()
+
+
+def make_unique_columns(columns_list):
+    """
+    將列表中的欄位名稱轉換為唯一的名稱，處理重複和空字串。
+    如果遇到重複或空字串，會添加後綴 (例如 'Column_1', '欄位_2')。
+    """
+    seen = collections.defaultdict(int)
+    unique_columns = []
+    for col in columns_list:
+        original_col_cleaned = normalize_text(col)
+        if not original_col_cleaned or len(original_col_cleaned) < 2:
+            name_base = "Column"
+            current_idx = 1
+            while f"{name_base}_{current_idx}" in unique_columns:
+                current_idx += 1
+            name = f"{name_base}_{current_idx}"
+        else:
+            name = original_col_cleaned
+
+        final_name = name
+        counter = seen[name]
+        while final_name in unique_columns:
+            counter += 1
+            final_name = f"{name}_{counter}"
+
+        unique_columns.append(final_name)
+        seen[name] = counter
+
+    return unique_columns
+
 
 def is_grades_table(df):
     """
-    简单判断是否成绩表格——只要同时存在“科目”“学分”两列即可
+    判斷一個 DataFrame 是否為有效的成績單表格。
+    透過檢查是否存在預期的欄位關鍵字和數據內容模式來判斷。
     """
-    cols = [c.replace(" ", "") for c in df.columns]
-    return any("科目" in c or "课程" in c for c in cols) and any("学分" in c or "Credit" in c for c in cols)
+    if df.empty or len(df.columns) < 3:
+        return False
 
-def regex_fallback_to_df(pdf):
-    """
-    纯文字 PDF 回退：用正则把每行拆成 (学年)(学期)(科目名)(学分)(GPA)。
-    例如行格式：
-      112 上 台日交流实践--农食育中的语言实践 3 A-
-    """
-    records = []
-    for page in pdf.pages:
-        text = page.extract_text() or ""
-        for line in text.split("\n"):
-            # 四个捕获组：year, sem, subj, credit, gpa
-            m = re.match(
-                r"^\s*(\d{3,4})\s+(上|下)\s+(.+?)\s+(\d+(?:\.\d+)?)\s+([A-F][+\-]?|通過|抵免)\s*$",
-                line
-            )
-            if m:
-                year, sem, subj, cred, gpa = m.groups()
-                records.append({
-                    "學年度": year,
-                    "學期": sem,
-                    "科目名稱": subj.strip(),
-                    "學分": cred,
-                    "GPA": gpa
-                })
-    if records:
-        return pd.DataFrame(records)
-    return None
+    normalized_columns = [re.sub(r'\s+', '', col).lower() for col in df.columns]
+    credit_keywords = ["學分", "credits", "credit", "學分數"]
+    gpa_keywords = ["gpa", "成績", "grade"]
+    subject_keywords = ["科目名稱", "課程名稱", "coursename"]
+    year_keywords = ["學年", "year"]
+    semester_keywords = ["學期", "semester"]
+
+    has_credit = any(any(k in col for k in credit_keywords) for col in normalized_columns)
+    has_gpa = any(any(k in col for k in gpa_keywords) for col in normalized_columns)
+    has_subject = any(any(k in col for k in subject_keywords) for col in normalized_columns)
+    has_year = any(any(k in col for k in year_keywords) for col in normalized_columns)
+    has_sem = any(any(k in col for k in semester_keywords) for col in normalized_columns)
+
+    if has_subject and (has_credit or has_gpa) and has_year and has_sem:
+        return True
+
+    # fallback: check data patterns
+    sample = df.head(min(len(df), 20))
+    # implement additional checks if needed
+    return False
+
 
 def process_pdf_file(uploaded_file):
     """
-    1) 尝试用 pdfplumber 抽表格；
-    2) 如果一张都没抽到，则再跑 regex 回退；
-    3) 返回 DataFrame 列表，供上层 calculate_total_credits 使用。
+    使用 pdfplumber 處理上傳的 PDF 檔案，提取表格或純文字，返回成績表格 DataFrame 列表。
     """
-    tables = []
+    all_grades_data = []
+
     try:
         with pdfplumber.open(uploaded_file) as pdf:
-            for page_num, page in enumerate(pdf.pages, start=1):
-                extracted = page.extract_tables({
-                    "vertical_strategy":"lines",
-                    "horizontal_strategy":"lines",
-                    "snap_tolerance":3,
-                })
-                for tbl in extracted or []:
-                    # 规范化表格行、去掉空行
-                    rows = [[normalize_text(cell) for cell in row] for row in tbl]
-                    rows = [r for r in rows if any(cell for cell in r)]
-                    if len(rows) < 2:
-                        continue
-                    df = pd.DataFrame(rows[1:], columns=make_unique_columns(rows[0]))
-                    if is_grades_table(df):
-                        tables.append(df)
-            # 如果有表格就返回，否则尝试 regex 回退
-            if tables:
-                return tables
+            for page_num, page in enumerate(pdf.pages):
+                # 嘗試表格抽取
+                table_settings = {
+                    "vertical_strategy": "lines",
+                    "horizontal_strategy": "lines",
+                    "snap_tolerance": 3,
+                    "join_tolerance": 5,
+                    "edge_min_length": 3,
+                    "text_tolerance": 2,
+                    "min_words_vertical": 1,
+                    "min_words_horizontal": 1,
+                }
+                tables = page.extract_tables(table_settings)
+                page_had_table = False
 
-            st.info("未檢測到表格，啟用純文字回退解析…")
-            fallback_df = regex_fallback_to_df(pdf)
-            if fallback_df is not None:
-                return [fallback_df]
-            else:
-                st.warning("純文字回退也未識別到任何紀錄。")
-                return []
+                for idx, table in enumerate(tables):
+                    processed = [[normalize_text(cell) for cell in row] for row in table]
+                    if not processed or len(processed[0]) < 3:
+                        continue
+
+                    df_table = pd.DataFrame(processed[1:], columns=make_unique_columns(processed[0]))
+                    if is_grades_table(df_table):
+                        all_grades_data.append(df_table)
+                        page_had_table = True
+                        st.success(f"頁面 {page_num+1} 表格 {idx+1} 已識別並處理。")
+                    else:
+                        st.info(f"頁面 {page_num+1} 表格 {idx+1} 非成績表格，已跳過。")
+
+                # 如果本頁沒表格，使用文字 fallback
+                if not page_had_table:
+                    text = page.extract_text()
+                    if text:
+                        lines = text.split("\n")
+                        rows = []
+                        # 正則匹配: 學年 學期 課程名稱 學分 GPA
+                        pat = re.compile(
+                            r'(?P<year>\d{3,4})\s+' +
+                            r'(?P<sem>上|下|春|夏|秋|冬|1|2)\s+' +
+                            r'(?P<course>.+?)\s+' +
+                            r'(?P<credit>\d+(?:\.\d+)?)\s+' +
+                            r'(?P<gpa>[A-F][+\-]?|通過|抵免)'
+                        )
+                        for line in lines:
+                            m = pat.match(line.strip())
+                            if m:
+                                rows.append({
+                                    "學年": m.group("year"),
+                                    "學期": m.group("sem"),
+                                    "科目名稱": m.group("course"),
+                                    "學分": m.group("credit"),
+                                    "GPA": m.group("gpa"),
+                                })
+                        if rows:
+                            df_fallback = pd.DataFrame(rows)
+                            all_grades_data.append(df_fallback)
+                            st.info(f"頁面 {page_num+1} 文字 fallback 偵測到 {len(rows)} 筆課程。")
+
     except Exception as e:
-        st.error(f"PDF 解析失敗：{e}")
-        return []
+        st.error(f"處理 PDF 時發生錯誤: {e}")
+
+    return all_grades_data
