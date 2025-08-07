@@ -62,14 +62,14 @@ def main():
             cols_to_show = [c for c in display_cols if c in df_pass.columns]
             st.dataframe(df_pass[cols_to_show], use_container_width=True)
 
-            # 下載 CSV
-            csv_pass = df_pass.to_csv(index=False, encoding="utf-8-sig")
-            st.download_button(
-                "下載通過課程 CSV",
-                data=csv_pass,
-                file_name=f"{uploaded_file.name.rsplit('.',1)[0]}_通過課程.csv",
-                mime="text/csv"
-            )
+            # 用 CP950 編碼，讓 Excel 直接開不會亂碼
+csv_pass = df_pass.to_csv(index=False, encoding="cp950", errors="replace")
+st.download_button(
+    "下載通過課程 CSV",
+    data=csv_pass,
+    file_name=f"{uploaded_file.name.rsplit('.',1)[0]}_通過課程.csv",
+    mime="text/csv; charset=cp950"
+)
 
         # 不及格的課程列表
         st.markdown("---")
@@ -82,14 +82,14 @@ def main():
             cols_to_show = [c for c in display_cols if c in df_fail.columns]
             st.dataframe(df_fail[cols_to_show], use_container_width=True)
 
-            # 下載 CSV
-            csv_fail = df_fail.to_csv(index=False, encoding="utf-8-sig")
-            st.download_button(
-                "下載不及格課程 CSV",
-                data=csv_fail,
-                file_name=f"{uploaded_file.name.rsplit('.',1)[0]}_不及格課程.csv",
-                mime="text/csv"
-            )
+            csv_fail = df_fail.to_csv(index=False, encoding="cp950", errors="replace")
+st.download_button(
+    "下載不及格課程 CSV",
+    data=csv_fail,
+    file_name=f"{uploaded_file.name.rsplit('.',1)[0]}_不及格課程.csv",
+    mime="text/csv; charset=cp950"
+)
+
 
         # 回饋＆開發者資訊（固定顯示在最底部）
         st.markdown("---")
@@ -104,3 +104,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
