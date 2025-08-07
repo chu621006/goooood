@@ -139,7 +139,7 @@ def main():
                     .str[:-1]
                 )
                 st.dataframe(
-                    df_selected[["領域", "科目名稱", "學分"]], use_container_width=True)(僅供電腦用戶使用) ---
+                    df_selected[["領域", "科目名稱", "學分"]], use_container_width=True)---
     st.markdown("---")
     st.markdown("## 🎓 通識學分計算(僅供電腦用戶使用)")
     gen_docx = st.file_uploader(
@@ -172,4 +172,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
