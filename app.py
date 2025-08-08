@@ -159,24 +159,22 @@ def main():
                     use_container_width=True
                 )
 
-    # 回饋連結
-    st.markdown(
-        '<p style="text-align:center;">'
-        '感謝您的使用，若您有相關修改建議或發生其他類型錯誤，'
-        '<a href="https://forms.gle/Bu95Pt74d1oGVCev5" target="_blank">請點此提出</a>'
-        '</p>',
-        unsafe_allow_html=True
-    )
-    # 開發者資訊
-    st.markdown(
-        '<p style="text-align:center;">'
-        '開發者：<a href="https://www.instagram.com/chiuuuuu11.7?igsh=MWRlc21zYW55dWZ5Yw==" target="_blank">Chu</a>'
-        '</p>',
-        unsafe_allow_html=True
-    )
+st.sidebar.markdown("### 回饋與開發者")
+st.sidebar.markdown(
+    '[📬 提出建議/回報問題](https://forms.gle/zAGPCtw3FR6AaL1p9)', unsafe_allow_html=True
+)
+st.sidebar.markdown(
+    '開發者：<a href="https://www.instagram.com/chiuuuuu11.7?igsh=MWRlc21zYW55dWZ5Yw==" target="_blank">Chu</a>',
+    unsafe_allow_html=True
+)
+st.sidebar.markdown("### 日文系必選修分類點此")
+st.sidebar.markdown(
+    '[🅿️ 日文系必選修分類點此](https://forms.gle/zAGPCtw3FR6AaL1p9)', unsafe_allow_html=True
+)
 
 if __name__ == "__main__":
     main()
+
 
 
 
