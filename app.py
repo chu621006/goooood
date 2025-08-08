@@ -169,11 +169,12 @@ st.sidebar.markdown(
 )
 st.sidebar.markdown("### 日文系必選修分類點此")
 st.sidebar.markdown(
-    '[🅿️ 日文系必選修分類點此](https://forms.gle/zAGPCtw3FR6AaL1p9)', unsafe_allow_html=True
+    '[🅿️ 日文系必選修分類點此](https://hvnzje8muraupfp4iij4ex.streamlit.app/)', unsafe_allow_html=True
 )
 
 if __name__ == "__main__":
     main()
+
 
 
 
